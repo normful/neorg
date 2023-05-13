@@ -293,7 +293,7 @@ module.public = {
             end,
 
             ["link_file_text"] = function(text)
-                return vim.uri_from_fname(text .. ".md"):sub(string.len("file://") + 1)
+                return text
             end,
 
             ["link_target_url"] = function()
@@ -570,8 +570,10 @@ module.public = {
                     return output
                 end
 
-                table.insert(output, #output - 1, "#")
-                output[#output - 1] = output[#output - 1]:lower():gsub("-", " "):gsub("%p+", ""):gsub("%s+", "-")
+                table.insert(output, #output - 1, "@/blog/")
+
+                local link_location = output[#output - 1] .. '.MARKDOWN_EXT_PLACEHOLDER'
+                output[#output - 1] = string.gsub(link_location, " ", "%%20")
 
                 return output
             end,
