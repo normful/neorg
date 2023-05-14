@@ -231,8 +231,6 @@ module.on_event = function(event)
                     neorg.lib.lazy_string_concat("Failed to write to file '", filepath, "' for export: ", werr)
                 )
             end)
-
-            vim.schedule(neorg.lib.wrap(neorg.utils.notify, "Successfully exported 1 file!"))
         end)
     elseif event.type == "core.neorgcmd.events.export.directory" then
         local path = event.content[3] and vim.fn.expand(event.content[3])
@@ -263,15 +261,6 @@ module.on_event = function(event)
 
                     local function check_counters()
                         parsed_counter = parsed_counter + 1
-
-                        if parsed_counter >= file_counter then
-                            vim.schedule(
-                                neorg.lib.wrap(
-                                    neorg.utils.notify,
-                                    string.format("Successfully exported %d files!", file_counter)
-                                )
-                            )
-                        end
                     end
 
                     vim.schedule(function()
