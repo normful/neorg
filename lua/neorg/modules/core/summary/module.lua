@@ -21,6 +21,10 @@ require("neorg.external.helpers")
 
 local module = neorg.modules.create("core.summary")
 
+local function removeQuotes(str)
+    return str:sub(2, -2)
+end
+
 module.setup = function()
     return {
         sucess = true,
@@ -42,40 +46,20 @@ module.load = function()
     module.config.public.strategy = neorg.lib.match(module.config.public.strategy)({
         metadata = function()
             return function(files)
-                local categories = vim.defaulttable()
+                local result = {}
 
                 neorg.utils.read_files(files, function(bufnr, filename)
                     local metadata = ts.get_document_metadata(bufnr)
 
-                    if not metadata or vim.tbl_isempty(metadata) then
+                    if not metadata or vim.tbl_isempty(metadata) or metadata.title == '"index"' then
                         return
                     end
 
-                    for _, category in
-                        ipairs(vim.tbl_islist(metadata.categories) and metadata.categories or { metadata.categories })
-                    do
-                        if metadata.title then
-                            table.insert(
-                                categories[category],
-                                { title = metadata.title, filename = filename, description = metadata.description }
-                            )
-                        end
-                    end
+                    table.insert(
+                        result,
+                        table.concat({ " - {:", removeQuotes(metadata.title), ":}" })
+                    )
                 end)
-
-                local result = {}
-
-                for category, data in vim.spairs(categories) do
-                    table.insert(result, "** " .. neorg.lib.title(category))
-
-                    for _, datapoint in ipairs(data) do
-                        table.insert(
-                            result,
-                            table.concat({ "   - {:", datapoint.filename, ":}[", neorg.lib.title(datapoint.title), "]" })
-                                .. (datapoint.description and (table.concat({ " - ", datapoint.description })) or "")
-                        )
-                    end
-                end
 
                 return result
             end
