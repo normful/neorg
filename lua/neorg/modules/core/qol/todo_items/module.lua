@@ -7,13 +7,13 @@ This module handles the whole concept of toggling TODO items, as well as updatin
 parent and/or children items alongside the current item.
 
 The following keybinds are exposed:
-- `core.qol.todo_items.todo.task_done` (`gtd`)
-- `core.qol.todo_items.todo.task_undone` (`gtu`)
-- `core.qol.todo_items.todo.task_pending` (`gtp`)
-- `core.qol.todo_items.todo.task_on_hold` (`gth`)
-- `core.qol.todo_items.todo.task_cancelled` (`gtc`)
-- `core.qol.todo_items.todo.task_recurring` (`gtr`)
-- `core.qol.todo_items.todo.task_important` (`gti`)
+- `core.qol.todo_items.todo.task_done` (`<LocalLeader>td`)
+- `core.qol.todo_items.todo.task_undone` (`<LocalLeader>tu`)
+- `core.qol.todo_items.todo.task_pending` (`<LocalLeader>tp`)
+- `core.qol.todo_items.todo.task_on_hold` (`<LocalLeader>th`)
+- `core.qol.todo_items.todo.task_cancelled` (`<LocalLeader>tc`)
+- `core.qol.todo_items.todo.task_recurring` (`<LocalLeader>tr`)
+- `core.qol.todo_items.todo.task_important` (`<LocalLeader>ti`)
 - `core.qol.todo_items.todo.task_cycle` (`<C-Space>`)
 - `core.qol.todo_items.todo.task_cycle_reverse` (no default keybind)
 
@@ -43,8 +43,6 @@ module.load = function()
             return keys
         end)()
     )
-
-    module.required["core.keybinds"].register_keybind(module.name, "warn-deprecated-keybind")
 end
 
 module.config.public = {
@@ -386,10 +384,12 @@ module.public = {
 
         local next = types[index] or types[1]
 
-        for child in todo_item_at_cursor:iter_children() do
-            if module.public.get_todo_item_type(child) then
-                next = alternative_types[get_index(alternative_types, todo_item_type)]
-                break
+        if not next then
+            for child in todo_item_at_cursor:iter_children() do
+                if module.public.get_todo_item_type(child) then
+                    next = alternative_types[get_index(alternative_types, todo_item_type)]
+                    break
+                end
             end
         end
 
@@ -400,14 +400,6 @@ module.public = {
 
 module.on_event = function(event)
     local todo_str = "core.qol.todo_items.todo."
-
-    if event.split_type[2] == "core.qol.todo_items.warn-deprecated-keybind" then
-        neorg.utils.notify(
-            "This keybind has been deprecated. Use `<LocalLeader>t` instead of `gt` as your keybind prefix!",
-            vim.log.levels.WARN
-        )
-        return
-    end
 
     if event.split_type[1] == "core.keybinds" then
         local todo_item_at_cursor = module.public.get_todo_item_from_cursor(event.buffer, event.cursor_position[1] - 1)
@@ -424,6 +416,7 @@ module.on_event = function(event)
             done = "x",
             important = "!",
             recurring = "+",
+            ambiguous = "?",
         }
 
         local match = event.split_type[2]:match(todo_str .. "task_(.+)")
@@ -463,9 +456,9 @@ module.events.subscribed = {
         ["core.qol.todo_items.todo.task_cancelled"] = true,
         ["core.qol.todo_items.todo.task_important"] = true,
         ["core.qol.todo_items.todo.task_recurring"] = true,
+        ["core.qol.todo_items.todo.task_ambiguous"] = true,
         ["core.qol.todo_items.todo.task_cycle"] = true,
         ["core.qol.todo_items.todo.task_cycle_reverse"] = true,
-        ["core.qol.todo_items.warn-deprecated-keybind"] = true,
     },
 }
 

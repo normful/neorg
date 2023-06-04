@@ -21,10 +21,6 @@ require("neorg.external.helpers")
 
 local module = neorg.modules.create("core.summary")
 
-local function removeQuotes(str)
-    return str:sub(2, -2)
-end
-
 module.setup = function()
     return {
         sucess = true,
@@ -45,21 +41,53 @@ module.load = function()
 
     module.config.public.strategy = neorg.lib.match(module.config.public.strategy)({
         metadata = function()
-            return function(files)
-                local result = {}
+            return function(files, heading_level)
+                local categories = vim.defaulttable()
 
                 neorg.utils.read_files(files, function(bufnr, filename)
                     local metadata = ts.get_document_metadata(bufnr)
 
-                    if not metadata or vim.tbl_isempty(metadata) or metadata.title == '"index"' then
+                    if not metadata or vim.tbl_isempty(metadata) then
                         return
                     end
 
-                    table.insert(
-                        result,
-                        table.concat({ " - {:", removeQuotes(metadata.title), ":}" })
-                    )
+                    -- normalise categories into a list. Could be vim.NIL, a number, a string or a list ...
+                    if not metadata.categories or metadata.categories == vim.NIL then
+                        metadata.categories = { "Uncategorised" }
+                    elseif not vim.tbl_islist(metadata.categories) then
+                        metadata.categories = { tostring(metadata.categories) }
+                    end
+                    for _, category in ipairs(metadata.categories) do
+                        if not metadata.title then
+                            metadata.title = vim.fs.basename(filename)
+                        end
+                        if metadata.description == vim.NIL then
+                            metadata.description = nil
+                        end
+                        table.insert(
+                            categories[neorg.lib.title(category)],
+                            {
+                                title = tostring(metadata.title),
+                                filename = filename,
+                                description = metadata.description,
+                            }
+                        )
+                    end
                 end)
+                local result = {}
+                local prefix = string.rep("*", heading_level)
+
+                for category, data in vim.spairs(categories) do
+                    table.insert(result, prefix .. " " .. category)
+
+                    for _, datapoint in ipairs(data) do
+                        table.insert(
+                            result,
+                            table.concat({ "   - {:", datapoint.filename, ":}[", neorg.lib.title(datapoint.title), "]" })
+                                .. (datapoint.description and (table.concat({ " - ", datapoint.description })) or "")
+                        )
+                    end
+                end
 
                 return result
             end
@@ -78,7 +106,7 @@ module.config.public = {
     --   without metadata will be ignored.
     -- - "headings" (UNIMPLEMENTED) - read the top level heading and use that as the title.
     --   files in subdirectories are treated as subheadings.
-    ---@type string|fun(files: string[]): string[]?
+    ---@type string|fun(files: string[], heading_level: number?): string[]?
     strategy = "metadata",
 }
 
@@ -103,6 +131,8 @@ module.on_event = function(event)
             )
             return
         end
+        -- heading level of 'node_at_cursor' (summary headings should be one level deeper)
+        local level = tonumber(string.sub(node_at_cursor:type(), -1))
 
         local dirman = neorg.modules.get_module("core.dirman")
 
@@ -111,7 +141,8 @@ module.on_event = function(event)
             return
         end
 
-        local generated = module.config.public.strategy(dirman.get_norg_files(dirman.get_current_workspace()[1]) or {})
+        local generated =
+            module.config.public.strategy(dirman.get_norg_files(dirman.get_current_workspace()[1]) or {}, level + 1)
 
         if not generated or vim.tbl_isempty(generated) then
             neorg.utils.notify(

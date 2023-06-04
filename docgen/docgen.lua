@@ -39,8 +39,6 @@ require("neorg.external.helpers")
 local ts = neorg.modules.get_module("core.integrations.treesitter")
 assert(ts, "treesitter not available")
 
-local ts_utils = ts.get_ts_utils()
-
 --- Aggregates all the available modules.
 ---@return table #A list of paths to every module's `module.lua` file
 docgen.aggregate_module_files = function()
@@ -319,7 +317,8 @@ docgen.generators = {
             "# Using Neorg",
             "",
             "Neorg depends on a number of other technologies, all of which have to be correctly configured to keep Neorg running smoothly.",
-            "For some help on understanding how your terminal, Neovim, coloschemes, tree-sitter and more come together to produce your Neorg experience (or Neorg problems), see [this document on understanding Neorg dependencies](Dependencies)",
+            "For some help on understanding how your terminal, Neovim, coloschemes, tree-sitter and more come together to produce your Neorg experience (or Neorg problems), see [this document on understanding Neorg dependencies](Dependencies).",
+            "",
             "At first configuring Neorg might be rather scary. I have to define what modules I want to use in the `require('neorg').setup()` function?",
             "I don't even know what the default available values are!",
             "Don't worry, an installation guide is present [here](https://github.com/nvim-neorg/neorg#-installationquickstart), so go ahead and read it!",
@@ -574,10 +573,10 @@ end
 
 --- Converts a ConfigOptionData struct to a html node in the resulting HTML document
 ---@param configuration_option ConfigOptionArray #The config option to render
----@param indent number? #How far to indent the text by. Should not be set manually.
+---@param open boolean? #Whether to auto-open the generated `<details>` tag. Defaults to false.
 ---@return string[] #A list of markdown tables corresponding to the rendered element.
-docgen.render = function(configuration_option, indent)
-    indent = indent or 0
+docgen.render = function(configuration_option, open)
+    open = open or false
 
     local self = configuration_option.self
 
@@ -593,7 +592,7 @@ docgen.render = function(configuration_option, indent)
     end)()
 
     local basis = {
-        "* <details" .. (indent == 0 and " open>" or ">"),
+        "* <details" .. (open and " open>" or ">"),
         "",
         ((self.data.name or ""):match("^%s*$") and "<summary>" or table.concat({
             "<summary><code>",
@@ -626,14 +625,14 @@ docgen.render = function(configuration_option, indent)
         })
     end
 
-    vim.list_extend(basis, docgen.htmlify(configuration_option, indent))
+    vim.list_extend(basis, docgen.htmlify(configuration_option))
     vim.list_extend(basis, {
         "",
         "</details>",
     })
 
     for i, str in ipairs(basis) do
-        basis[i] = string.rep(" ", indent + (i > 1 and 2 or 0)) .. str
+        basis[i] = string.rep(" ", 2 - (i == 1 and 2 or 0)) .. str
     end
 
     return basis
@@ -641,11 +640,8 @@ end
 
 --- Converts an object directly into HTML, with no extra fluff.
 ---@param configuration_option ConfigOptionArray
----@param indent number? #How far to indent the text by. Should not be set manually
 ---@return string[] #An array of markdown strings with the rendered HTML inside
-docgen.htmlify = function(configuration_option, indent)
-    indent = indent or 0
-
+docgen.htmlify = function(configuration_option)
     local self = configuration_option.self
 
     local result = {}
@@ -661,7 +657,7 @@ docgen.htmlify = function(configuration_option, indent)
             local unrolled = neorg.lib.unroll(self.object)
 
             table.sort(unrolled, function(x, y)
-                return x[1] < y[1]
+                return tostring(x[1]) < tostring(y[1])
             end)
 
             for _, data in ipairs(unrolled) do
@@ -671,7 +667,7 @@ docgen.htmlify = function(configuration_option, indent)
                 local subitem = configuration_option[name_or_index]
 
                 if subitem then
-                    vim.list_extend(result, docgen.render(subitem, indent + 1))
+                    vim.list_extend(result, docgen.render(subitem))
                 end
             end
 
